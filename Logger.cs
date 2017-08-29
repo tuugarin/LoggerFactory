@@ -4,7 +4,7 @@ using System.IO;
 
 namespace LoggingLayer
 {
-    public class Logger : ILogger
+    public class Logger : ILogger, IDisposable
     {
 
         private readonly TraceSource traceSource;
@@ -24,8 +24,8 @@ namespace LoggingLayer
             if (currentDate.Date != DateTime.Now.Date)
             {
                 currentDate = DateTime.Now;
-                traceSource.Listeners[0].Flush();
-                traceSource.Listeners[0].Close();
+                traceSource.Listeners[name].Flush();
+                traceSource.Listeners[name].Close();
                 traceSource.Listeners.Remove(name);
 
                 traceSource.Listeners.Add(CreateNewXmlWriterTraceListner());
@@ -36,13 +36,13 @@ namespace LoggingLayer
         }
         public void LogInfo(string message)
         {
-            var userName = System.Threading.Thread.CurrentPrincipal.Identity.Name;
-            Log(string.Format("{0} UserName: {1}", message, userName), TraceEventType.Information);
+            var userName = System.Threading.Thread.CurrentPrincipal?.Identity?.Name;
+            Log($"{message} " + (string.IsNullOrEmpty(userName) ? string.Empty : $"UserName : { userName}"), TraceEventType.Information);
         }
         public void LogError(string message)
         {
-            var userName = System.Threading.Thread.CurrentPrincipal.Identity.Name;
-            Log(string.Format("{0} UserName: {1}", message, userName), TraceEventType.Error);
+            var userName = System.Threading.Thread.CurrentPrincipal?.Identity?.Name;
+            Log($"{message} " + (string.IsNullOrEmpty(userName) ? string.Empty : $"UserName : { userName}"), TraceEventType.Error);
         }
         XmlWriterTraceListener CreateNewXmlWriterTraceListner()
         {
@@ -51,6 +51,34 @@ namespace LoggingLayer
 
             return new XmlWriterTraceListener(Path.Combine(path, string.Format("{0}.xml", name)), name);
         }
+
+        #region IDisposable Support
+        private bool disposedValue = false; // To detect redundant calls
+
+        protected virtual void Dispose(bool disposing)
+        {
+            if (!disposedValue)
+            {
+                if (disposing)
+                {
+                    foreach (TraceListener listner in traceSource.Listeners)
+                    {
+                        listner.Flush();
+                        listner.Close();
+                        listner.Dispose();
+                    }
+                }
+
+                disposedValue = true;
+            }
+        }
+
+        // This code added to correctly implement the disposable pattern.
+        public void Dispose()
+        {
+            Dispose(true);
+        }
+        #endregion
     }
 
 }

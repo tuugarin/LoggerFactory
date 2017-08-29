@@ -1,10 +1,11 @@
 ﻿using System.Collections.Generic;
+using System.Threading;
 
 namespace LoggingLayer
 {
     public class LoggerFactory : ILoggerFactory
     {
-        static volatile LoggerFactory _loggerFactory;
+        static volatile LoggerFactory _loggerFactory = new LoggerFactory();
         static readonly Dictionary<string, Logger> loggers = new Dictionary<string, Logger>();
         static readonly object sync = new object();
 
@@ -16,16 +17,6 @@ namespace LoggingLayer
         {
             get
             {
-                if (_loggerFactory == null)
-                {
-                    lock (sync)
-                    {
-                        if (_loggerFactory == null)
-                        {
-                            _loggerFactory = new LoggerFactory();
-                        }
-                    }
-                }
                 return _loggerFactory;
             }
         }
@@ -42,17 +33,18 @@ namespace LoggingLayer
         {
             get
             {
-                lock (sync)
+
+                if (!loggers.ContainsKey(name))
                 {
-                    if (!loggers.ContainsKey(name))
-                    {
-                        var logger = new Logger(name);
-                        loggers.Add(name, logger);
-                        return logger;
-                    }
-                    else return loggers[name];
+                    var logger = new Logger(name);
+                    Monitor.Enter(sync);
+                    loggers.Add(name, logger);
+                    Monitor.Exit(sync);
+                    return logger;
                 }
+                else return loggers[name];
             }
+
         }
     }
 }
